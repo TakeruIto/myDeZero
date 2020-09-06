@@ -1,10 +1,6 @@
 import numpy as np
-from step02 import Variable
-from step02 import Function, Square
-
-class Exp(Function):
-    def forward(self, x):
-        return np.exp(x)
+from step01 import Variable
+from step02 import Square, Exp
 
 if __name__ == "__main__":
     A = Square()
@@ -16,4 +12,3 @@ if __name__ == "__main__":
     b = B(a)
     y = C(b)
     print(y.data)
-     
