@@ -61,6 +61,9 @@ class Variable:
     def transpose(self):
         return dezero.function.transpose(self)
 
+    def sum(self, axis=None, keepdims=False):
+        return dezero.functions.sum(self, axis, keepdims)
+
     def set_creator(self, func):
         self.creator = func
         self.generation = func.generation + 1

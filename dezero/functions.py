@@ -1,6 +1,7 @@
 import numpy as np
 from dezero.core import as_variable
 from dezero.core import Function
+from dezero import utils
 
 class Reshape(Function):
     def __init__(self, shape):
@@ -21,6 +22,20 @@ class Transpose(Function):
 
     def backward(self, gy):
         gx = transpose(gy)
+        return gx
+
+class Sum(Function):
+    def __init__(self, axis, keepdims):
+        self.axis = axis
+        self.keepdims = keepdims
+    def forward(self, x):
+        self.x_shape = x.shape
+        y = x.sum(axis=self.axis, keepdims=self.keepdims)
+        return y
+
+    def backward(self, gy):
+        gy = utils.reshape_sum_backward(gy, self.x_shape, self.axis, self.keepdims)
+        gx = broadcast_to(gy, self.x_shape)
         return gx
 
 class Sin(Function):
@@ -60,6 +75,9 @@ def reshape(x, shape):
 
 def transpose(x):
     return Transpose()(x)
+
+def sum(x, axis=None, keepdims=False):
+    return Sum(axis, keepdims)(x)
 
 def sin(x):
     return Sin()(x)
