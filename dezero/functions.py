@@ -15,6 +15,11 @@ class Reshape(Function):
     def backward(self, gy):
         return reshape(gy, self.x_shape)
 
+def reshape(x, shape):
+    if x.shape == shape:
+        return as_variable(x)
+    return Reshape(shape)(x)
+
 class Transpose(Function):
     def forward(self, x):
         y = np.transpose(x)
@@ -23,6 +28,9 @@ class Transpose(Function):
     def backward(self, gy):
         gx = transpose(gy)
         return gx
+
+def transpose(x):
+    return Transpose()(x)
 
 class Sum(Function):
     def __init__(self, axis, keepdims):
@@ -38,6 +46,9 @@ class Sum(Function):
         gx = broadcast_to(gy, self.x_shape)
         return gx
 
+def sum(x, axis=None, keepdims=False):
+    return Sum(axis, keepdims)(x)
+
 class BroadcastTo(Function):
     def __init__(self, shape):
         self.shape = shape
@@ -50,6 +61,11 @@ class BroadcastTo(Function):
     def backward(self, gy):
         gx = sum_to(gy, self.x_shape)
         return gx
+
+def broadcast_to(x, shape):
+    if x.shape == shape:
+        return as_variable(x)
+    return BroadcastTo(shape)(x)
 
 class SumTo(Function):
     def __init__(self, shape):
@@ -64,6 +80,11 @@ class SumTo(Function):
         gx = broadcast_to(gy, self.x_shape)
         return gx
 
+def sum_to(x, shape):
+    if x.shape == shape:
+        return as_variable(x)
+    return SumTo(shape)(x)
+
 class MatMul(Function):
     def forward(self, x, W):
         y = x.dot(W)
@@ -75,6 +96,9 @@ class MatMul(Function):
         gW = matmul(x.T, gy)
         return gx, gW
 
+def matmul(x, W):
+    return MatMul()(x, W)
+
 class Sin(Function):
     def forward(self, x):
         y = np.sin(x)
@@ -84,6 +108,9 @@ class Sin(Function):
         x, = self.inputs
         gx = gy * cos(x)
         return gx
+
+def sin(x):
+    return Sin()(x)
 
 class Cos(Function):
     def forward(self, x):
@@ -95,6 +122,9 @@ class Cos(Function):
         gx = gy * -sin(x)
         return gx
 
+def cos(x):
+    return Cos()(x)
+
 class Tanh(Function):
     def forward(self, x):
         y = np.tanh(x)
@@ -105,6 +135,9 @@ class Tanh(Function):
         gx = gy * (1 - y*y)
         return gx
 
+def tanh(x):
+    return Tanh()(x)
+
 class Exp(Function):
     def forward(self, x):
         y = np.exp(x)
@@ -114,6 +147,9 @@ class Exp(Function):
         y = self.outputs[0]()  # weakref
         gx = gy * y
         return gx
+
+def exp(x):
+    return Exp()(x)
 
 class Linear(Function):
     def forward(self, x, W, b):
@@ -129,6 +165,19 @@ class Linear(Function):
         gW = matmul(x.T, gy)
         return gx, gW, gb
 
+def linear_simple(x, W, b=None):
+    x, W = as_variable(x), as_variable(W)
+    t = matmul(x, W)
+    if b is None:
+        return t
+
+    y = t + b
+    t.data = None
+    return y
+
+def linear(x, W, b=None):
+    return Linear()(x, W, b)
+
 class Sigmoid(Function):
     def forward(self, x):
         y = 1 / (1 + np.exp(-x))
@@ -139,6 +188,14 @@ class Sigmoid(Function):
         y = self.outputs[0]()
         gx = gy * y * (1 - y)
         return gx
+
+def sigmoid_simple(x):
+    x = as_variable(x)
+    y = 1 / (1 + exp(-x))
+    return y
+
+def sigmoid(x):
+    return Sigmoid()(x)
 
 class MeanSquaredError(Function):
     def forward(self, x0, x1):
@@ -154,62 +211,5 @@ class MeanSquaredError(Function):
         gx1 = -gx0
         return gx0, gx1
 
-def reshape(x, shape):
-    if x.shape == shape:
-        return as_variable(x)
-    return Reshape(shape)(x)
-
-def transpose(x):
-    return Transpose()(x)
-
-def sum(x, axis=None, keepdims=False):
-    return Sum(axis, keepdims)(x)
-
-def broadcast_to(x, shape):
-    if x.shape == shape:
-        return as_variable(x)
-    return BroadcastTo(shape)(x)
-
-def sum_to(x, shape):
-    if x.shape == shape:
-        return as_variable(x)
-    return SumTo(shape)(x)
-
-def matmul(x, W):
-    return MatMul()(x, W)
-
-def sin(x):
-    return Sin()(x)
-
-def cos(x):
-    return Cos()(x)
-
-def tanh(x):
-    return Tanh()(x)
-
-def exp(x):
-    return Exp()(x)
-
 def mean_squared_error(x0, x1):
     return MeanSquaredError()(x0, x1)
-
-def linear_simple(x, W, b=None):
-    x, W = as_variable(x), as_variable(W)
-    t = matmul(x, W)
-    if b is None:
-        return t
-
-    y = t + b
-    t.data = None
-    return y
-
-def linear(x, W, b=None):
-    return Linear()(x, W, b)
-
-def sigmoid_simple(x):
-    x = as_variable(x)
-    y = 1 / (1 + exp(-x))
-    return y
-
-def sigmoid(x):
-    return Sigmoid()(x)
