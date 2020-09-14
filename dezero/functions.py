@@ -105,6 +105,41 @@ class Tanh(Function):
         gx = gy * (1 - y*y)
         return gx
 
+class Exp(Function):
+    def forward(self, x):
+        y = np.exp(x)
+        return y
+
+    def backward(self, gy):
+        y = self.outputs[0]()  # weakref
+        gx = gy * y
+        return gx
+
+class Linear(Function):
+    def forward(self, x, W, b):
+        y = x.dot(W)
+        if b is not None:
+            y += b
+        return y
+
+    def backward(self, gy):
+        x, W, b = self.inputs
+        gb = None if b.data is None else sum_to(gy, b.shape)
+        gx = matmul(gy, W.T)
+        gW = matmul(x.T, gy)
+        return gx, gW, gb
+
+class Sigmoid(Function):
+    def forward(self, x):
+        y = 1 / (1 + np.exp(-x))
+        # y = xp.tanh(x * 0.5) * 0.5 + 0.5  # Better implementation
+        return y
+
+    def backward(self, gy):
+        y = self.outputs[0]()
+        gx = gy * y * (1 - y)
+        return gx
+
 class MeanSquaredError(Function):
     def forward(self, x0, x1):
         diff = x0 - x1
@@ -152,5 +187,29 @@ def cos(x):
 def tanh(x):
     return Tanh()(x)
 
+def exp(x):
+    return Exp()(x)
+
 def mean_squared_error(x0, x1):
     return MeanSquaredError()(x0, x1)
+
+def linear_simple(x, W, b=None):
+    x, W = as_variable(x), as_variable(W)
+    t = matmul(x, W)
+    if b is None:
+        return t
+
+    y = t + b
+    t.data = None
+    return y
+
+def linear(x, W, b=None):
+    return Linear()(x, W, b)
+
+def sigmoid_simple(x):
+    x = as_variable(x)
+    y = 1 / (1 + exp(-x))
+    return y
+
+def sigmoid(x):
+    return Sigmoid()(x)
