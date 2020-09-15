@@ -10,7 +10,7 @@ class Model(Layer):
 
 class MLP(Model):
     def __init__(self, fc_output_sizes, activation=F.sigmoid):
-        super.__init__()
+        super().__init__()
         self.activation = activation
         self.layers = []
 
