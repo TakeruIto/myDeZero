@@ -2,6 +2,7 @@ import numpy as np
 from dezero.core import Function, Variable, as_variable, as_array
 from dezero.core import Function
 from dezero import utils
+from dezero import cuda
 
 class Reshape(Function):
     def __init__(self, shape):
@@ -21,16 +22,23 @@ def reshape(x, shape):
     return Reshape(shape)(x)
 
 class Transpose(Function):
+    def __init__(self, axes=None):
+        self.axes = axes
+
     def forward(self, x):
-        y = np.transpose(x)
+        y = x.transpose(self.axes)
         return y
 
     def backward(self, gy):
-        gx = transpose(gy)
-        return gx
+        if self.axes is None:
+            return transpose(gy)
 
-def transpose(x):
-    return Transpose()(x)
+        axes_len = len(self.axes)
+        inv_axes = tuple(np.argsort([ax % axes_len for ax in self.axes]))
+        return transpose(gy, inv_axes)
+
+def transpose(x, axes=None):
+    return Transpose(axes)(x)
 
 class GetItem(Function):
     def __init__(self, slices):
@@ -50,12 +58,17 @@ def get_item(x, slices):
 
 class GetItemGrad(Function):
     def __init__(self, slices, in_shape):
-        self.slices = slices = slices
+        self.slices = slices
         self.in_shape = in_shape
 
     def forward(self, gy):
-        gx = np.zeros(self.in_shape)
-        np.add.at(gx, self.slices, gy)
+        xp = cuda.get_array_module(gy)
+        gx = xp.zeros(self.in_shape, dtype=gy.dtype)
+
+        if xp is np:
+            np.add.at(gx, self.slices, gy)
+        else:
+            xp.scatter_add(gx, self.slices, gy)
         return gx
 
     def backward(self, ggx):
@@ -130,7 +143,8 @@ def matmul(x, W):
 
 class Sin(Function):
     def forward(self, x):
-        y = np.sin(x)
+        xp = cuda.get_array_module(x)
+        y = xp.sin(x)
         return y
 
     def backward(self, gy):
@@ -143,7 +157,8 @@ def sin(x):
 
 class Cos(Function):
     def forward(self, x):
-        y = np.cos(x)
+        xp = cuda.get_array_module(x)
+        y = xp.cos(x)
         return y
 
     def backward(self, gy):
@@ -156,7 +171,8 @@ def cos(x):
 
 class Tanh(Function):
     def forward(self, x):
-        y = np.tanh(x)
+        xp = cuda.get_array_module(x)
+        y = xp.tanh(x)
         return y
 
     def backward(self, gy):
@@ -169,7 +185,8 @@ def tanh(x):
 
 class Exp(Function):
     def forward(self, x):
-        y = np.exp(x)
+        xp = cuda.get_array_module(x)
+        y = xp.exp(x)
         return y
 
     def backward(self, gy):
@@ -182,7 +199,8 @@ def exp(x):
 
 class Log(Function):
     def forward(self, x):
-        y = np.log(x)
+        xp = cuda.get_array_module(x)
+        y = xp.log(x)
         return y
 
     def backward(self, gy):
@@ -223,8 +241,9 @@ def linear(x, W, b=None):
 
 class Sigmoid(Function):
     def forward(self, x):
-        y = 1 / (1 + np.exp(-x))
-        # y = xp.tanh(x * 0.5) * 0.5 + 0.5  # Better implementation
+        xp = cuda.get_array_module(x)
+        # y = 1 / (1 + xp.exp(-x))
+        y = xp.tanh(x * 0.5) * 0.5 + 0.5  # Better implementation
         return y
 
     def backward(self, gy):
@@ -242,7 +261,8 @@ def sigmoid(x):
 
 class ReLU(Function):
     def forward(self, x):
-        y = np.maximum(x, 0.0)
+        xp = cuda.get_array_module(x)
+        y = xp.maximum(x, 0.0)
         return y
 
     def backward(self, gy):
@@ -259,8 +279,9 @@ class Softmax(Function):
         self.axis = axis
 
     def forward(self, x):
+        xp = cuda.get_array_module(x)
         y = x - x.max(axis=self.axis, keepdims=True)
-        y = np.exp(y)
+        y = xp.exp(y)
         y /= y.sum(axis=self.axis, keepdims=True)
         return y
 
@@ -296,7 +317,8 @@ class SoftmaxCrossEntropy(Function):
         gy *= 1/N
         y = softmax(x)
         # convert to one-hot
-        t_onehot = np.eye(CLS_NUM, dtype=t.dtype)[t.data]
+        xp = cuda.get_array_module(t.data)
+        t_onehot = xp.eye(CLS_NUM, dtype=t.dtype)[t.data]
         y = (y - t_onehot) * gy
         return y
 
@@ -338,7 +360,8 @@ class Clip(Function):
         self.x_max = x_max
 
     def forward(self, x):
-        y = np.clip(x, self.x_min, self.x_max)
+        xp = cuda.get_array_module(x)
+        y = xp.clip(x, self.x_min, self.x_max)
         return y
 
     def backward(self, gy):
