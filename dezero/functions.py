@@ -394,3 +394,11 @@ def accuracy(y, t):
     result = (pred == t.data)
     acc = result.mean()
     return Variable(as_array(acc))
+
+from dezero.functions_conv import conv2d
+from dezero.functions_conv import deconv2d
+from dezero.functions_conv import conv2d_simple
+from dezero.functions_conv import im2col
+from dezero.functions_conv import col2im
+from dezero.functions_conv import pooling_simple
+from dezero.functions_conv import pooling
